@@ -20,6 +20,9 @@ st.set_page_config(
 EPS0 = 8.8541878128e-12  # F/m
 K = 1 / (4 * math.pi * EPS0)
 
+# Três valores permitidos para lambda (em microC/m)
+LAMBDA_OPTIONS_UCM = [-5.0, 0.0, 5.0]
+
 # ============================================================
 # ESTILOS
 # ============================================================
@@ -44,7 +47,7 @@ st.markdown(
 # FUNÇÕES UTILITÁRIAS
 # ============================================================
 def sci_parts(value: float):
-    """Retorna mantissa e expoente para notação científica base 10."""
+    """Retorna mantissa e expoente para notação científica."""
     if value == 0 or abs(value) < 1e-300:
         return 0.0, 0
     exp = int(math.floor(math.log10(abs(value))))
@@ -60,8 +63,8 @@ def superscript(n: int) -> str:
 
 def fmt_num(value: float, digits: int = 4, unit: str | None = None) -> str:
     """
-    Formata número para texto comum.
-    Usa 10^n no estilo visual com sobrescrito quando necessário.
+    Formatação para texto comum.
+    Usa ×10ⁿ se necessário.
     """
     if value is None:
         return "—"
@@ -79,7 +82,8 @@ def fmt_num(value: float, digits: int = 4, unit: str | None = None) -> str:
 
 def fmt_num_plain(value: float, digits: int = 6) -> str:
     """
-    Formata número para uso em LaTeX, usando \\times 10^{n} quando necessário.
+    Formatação para LaTeX.
+    Usa \\times 10^{n} se necessário.
     """
     if value is None:
         return "—"
@@ -95,15 +99,12 @@ def fmt_num_plain(value: float, digits: int = 6) -> str:
 
 
 def theta_from_x_a(x: float, a: float) -> float:
-    """
-    theta = arctan(x / a), em rad.
-    Usa atan2 para robustez numérica.
-    """
+    """theta = arctan(x/a), em rad."""
     return math.atan2(x, a)
 
 
 def sign_color(lmbd: float) -> str:
-    """Cor do fio conforme o sinal da densidade linear."""
+    """Cor do fio conforme o sinal de lambda."""
     if lmbd > 0:
         return "#d62728"  # vermelho
     if lmbd < 0:
@@ -112,7 +113,6 @@ def sign_color(lmbd: float) -> str:
 
 
 def maybe_logo(path: str = "logo_maua.png"):
-    """Carrega logo se existir."""
     p = Path(path)
     if p.exists():
         return Image.open(p)
@@ -121,12 +121,11 @@ def maybe_logo(path: str = "logo_maua.png"):
 
 def calcular_campo(lambda_lin: float, a: float, x1: float | None, x2: float | None):
     """
-    x1, x2 são distâncias POSITIVAS.
+    x1 e x2 são distâncias positivas.
     None representa infinito:
-      - x1 = None  -> x1 -> infinito (na figura mostraremos -∞, à esquerda)
-      - x2 = None  -> x2 -> infinito (na figura mostraremos +∞, à direita)
+      - x1 = None -> fio vai infinitamente para a esquerda
+      - x2 = None -> fio vai infinitamente para a direita
     """
-
     theta1 = math.pi / 2 if x1 is None else theta_from_x_a(x1, a)
     theta2 = math.pi / 2 if x2 is None else theta_from_x_a(x2, a)
 
@@ -198,20 +197,18 @@ def finite_or_inf_ui(label: str, key_prefix: str, default_value: float):
 
 
 # ============================================================
-# FIGURA (PLOTLY)
+# FIGURA
 # ============================================================
-def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, calc: dict):
+def build_plot(lambda_lin: float, lambda_u: float, a: float, x1: float | None, x2: float | None, calc: dict):
     wire_color = sign_color(lambda_lin)
 
     finite_values = [v for v in [x1, x2, a] if v is not None]
     base = max(finite_values) if finite_values else a
     span = max(4.0, 1.5 * base)
 
-    # Extensões visuais do fio
     left_vis = -(x1 if x1 is not None else span)
     right_vis = x2 if x2 is not None else span
 
-    # Limites da figura para não cortar elementos
     left_lim = min(left_vis - 0.30 * span, -0.95 * span)
     right_lim = max(right_vis + 0.30 * span, 0.95 * span)
     top_lim = max(a + 0.75 * span, 1.45 * a)
@@ -219,9 +216,9 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
 
     fig = go.Figure()
 
-    # ---------------------------
-    # Fio
-    # ---------------------------
+    # ------------------------------------------------
+    # FIO
+    # ------------------------------------------------
     fig.add_trace(
         go.Scatter(
             x=[left_vis, right_vis],
@@ -233,7 +230,7 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
         )
     )
 
-    # Continuidade visual para fio infinito
+    # Continuidade visual do fio infinito
     if x1 is None:
         fig.add_annotation(
             x=left_vis,
@@ -270,17 +267,13 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
             text="",
         )
 
-    # ---------------------------
-    # Ponto P
-    # ---------------------------
+    # Ponto central (sem texto, o texto P será anotação por cima de tudo no final)
     fig.add_trace(
         go.Scatter(
             x=[0],
             y=[a],
-            mode="markers+text",
+            mode="markers",
             marker=dict(size=12, color="#111111"),
-            text=["P"],
-            textposition="top center",
             hoverinfo="skip",
             showlegend=False,
         )
@@ -298,10 +291,10 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
         )
     )
 
-    # Diagonais até as extremidades visíveis
     xl = left_vis
     xr = right_vis
 
+    # Diagonais
     fig.add_trace(
         go.Scatter(
             x=[0, xl],
@@ -323,12 +316,11 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
         )
     )
 
-    # ---------------------------
+    # ------------------------------------------------
     # COTAS x1 e x2
-    # ---------------------------
+    # ------------------------------------------------
     y_dim = max(bottom_lim + 0.20 * (top_lim - bottom_lim), -0.22 * span)
 
-    # Linhas de apoio
     for x in [xl, 0, xr]:
         fig.add_trace(
             go.Scatter(
@@ -341,7 +333,7 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
             )
         )
 
-    # x1 (duas setas opostas)
+    # x1
     fig.add_annotation(
         x=xl, y=y_dim, ax=0, ay=y_dim,
         xref="x", yref="y", axref="x", ayref="y",
@@ -389,9 +381,9 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
         bgcolor="rgba(255,255,255,0.78)",
     )
 
-    # ---------------------------
+    # ------------------------------------------------
     # COTA a
-    # ---------------------------
+    # ------------------------------------------------
     x_dim_a = right_lim - 0.08 * (right_lim - left_lim)
 
     fig.add_trace(
@@ -438,15 +430,16 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
         bgcolor="rgba(255,255,255,0.78)",
     )
 
-    # ---------------------------
-    # ARCOS DOS ÂNGULOS
-    # ---------------------------
+    # ------------------------------------------------
+    # ÂNGULOS
+    # ------------------------------------------------
     r_arc = 0.22 * span
     t1 = calc["theta1_rad"]
     t2 = calc["theta2_rad"]
 
-    # Ângulo esquerdo: da vertical para a diagonal da esquerda
     phi1 = np.linspace(-math.pi / 2 - t1, -math.pi / 2, 60)
+    phi2 = np.linspace(-math.pi / 2, -math.pi / 2 + t2, 60)
+
     fig.add_trace(
         go.Scatter(
             x=r_arc * np.cos(phi1),
@@ -458,8 +451,6 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
         )
     )
 
-    # Ângulo direito: da vertical para a diagonal da direita
-    phi2 = np.linspace(-math.pi / 2, -math.pi / 2 + t2, 60)
     fig.add_trace(
         go.Scatter(
             x=r_arc * np.cos(phi2),
@@ -489,9 +480,9 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
         bgcolor="rgba(255,255,255,0.78)",
     )
 
-    # ---------------------------
-    # VETORES Ex, Ey e E em P
-    # ---------------------------
+    # ------------------------------------------------
+    # VETORES Ex, Ey e E
+    # ------------------------------------------------
     Ex = calc["Ex_dist"]
     Ey = calc["Ey_dist"]
     E = calc["E"]
@@ -499,10 +490,12 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
     vec_ref = max(abs(Ex), abs(Ey), E, 1e-12)
     L = 0.42 * span
 
-    def add_vec(dx, dy, name, color):
+    def add_vec(dx, dy, name, color, show_text=True):
         if abs(dx) < 1e-15 and abs(dy) < 1e-15:
             return
+
         scale = L / vec_ref
+
         fig.add_annotation(
             x=dx * scale,
             y=a + dy * scale,
@@ -517,23 +510,27 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
             arrowsize=1.4,
             arrowwidth=3,
             arrowcolor=color,
-            text=name,
+            text=name if show_text else "",
             font=dict(color=color, size=14),
-            bgcolor="rgba(255,255,255,0.68)",
+            bgcolor="rgba(255,255,255,0.68)" if show_text else "rgba(255,255,255,0)",
         )
 
-    add_vec(Ex, 0, "Eₓ", "#ff7f0e")
-    add_vec(0, Ey, "Eᵧ", "#17a2b8")
-    add_vec(Ex, Ey, "E", "#111111")
+    # Ex e Ey com rótulo
+    add_vec(Ex, 0, "Eₓ", "#ff7f0e", show_text=True)
+    add_vec(0, Ey, "Eᵧ", "#17a2b8", show_text=True)
 
-    # ---------------------------
-    # BOX INFORMATIVO 1 (λ, θ1, θ2)
-    # ---------------------------
-    if lambda_lin == 0:
-        lambda_text = "λ = 0 C/m"
+    # E sem rótulo
+    add_vec(Ex, Ey, "", "#111111", show_text=False)
+
+    # ------------------------------------------------
+    # BOX 1 - lambda e ângulos
+    # ------------------------------------------------
+    if lambda_u == 0:
+        lambda_text = "λ = 0 μC/m"
+    elif lambda_u > 0:
+        lambda_text = f"λ = +{fmt_num(lambda_u, 2, 'μC/m')}"
     else:
-        sinal = "+" if lambda_lin > 0 else "−"
-        lambda_text = f"λ = {sinal}{fmt_num(abs(lambda_lin), 4, 'C/m')}"
+        lambda_text = f"λ = {fmt_num(lambda_u, 2, 'μC/m')}"
 
     box1 = (
         f"<b>{lambda_text}</b><br>"
@@ -555,14 +552,14 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
         font=dict(size=14),
     )
 
-    # ---------------------------
-    # BOX INFORMATIVO 2 (Ex, Ey, E)
-    # ---------------------------
+    # ------------------------------------------------
+    # BOX 2 - campos com as mesmas cores dos vetores
+    # ------------------------------------------------
     box2 = (
-        f"<b>Componentes do campo</b><br>"
-        f"Eₓ = {fmt_num(Ex, 4, 'N/C')}<br>"
-        f"Eᵧ = {fmt_num(Ey, 4, 'N/C')}<br>"
-        f"|E| = {fmt_num(E, 4, 'N/C')}"
+        "<b>Componentes do campo</b><br>"
+        f"<span style='color:#ff7f0e;'><b>Eₓ = {fmt_num(Ex, 4, 'N/C')}</b></span><br>"
+        f"<span style='color:#17a2b8;'><b>Eᵧ = {fmt_num(Ey, 4, 'N/C')}</b></span><br>"
+        f"<span style='color:#111111;'><b>|E| = {fmt_num(E, 4, 'N/C')}</b></span>"
     )
 
     fig.add_annotation(
@@ -579,14 +576,30 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
         font=dict(size=14),
     )
 
-    # ---------------------------
+    # ------------------------------------------------
+    # RÓTULO P POR CIMA DE TUDO
+    # ------------------------------------------------
+    fig.add_annotation(
+        x=0,
+        y=a,
+        text="<b>P</b>",
+        showarrow=False,
+        yshift=18,
+        font=dict(size=18, color="#111111"),
+        bgcolor="rgba(255,255,255,0.95)",
+        bordercolor="rgba(0,0,0,0.15)",
+        borderwidth=1,
+    )
+
+    # ------------------------------------------------
     # AJUSTES FINAIS
-    # ---------------------------
+    # ------------------------------------------------
     fig.update_xaxes(
         visible=False,
         range=[left_lim, right_lim],
         fixedrange=False,
     )
+
     fig.update_yaxes(
         visible=False,
         range=[bottom_lim, top_lim],
@@ -609,8 +622,7 @@ def build_plot(lambda_lin: float, a: float, x1: float | None, x2: float | None, 
 
 def plotly_scrollable(fig):
     """
-    Renderiza a figura em um contêiner com rolagem horizontal,
-    útil para telas pequenas/celular.
+    Contêiner com rolagem horizontal para facilitar uso no celular.
     """
     html = pio.to_html(
         fig,
@@ -660,14 +672,13 @@ st.header("Parâmetros")
 p1, p2 = st.columns(2)
 
 with p1:
-    lambda_lin = st.slider(
-        "Densidade linear λ (C/m)",
-        min_value=-10e-6,
-        max_value=10e-6,
-        value=2e-6,
-        step=0.1e-6,
-        format="%.7f",
+    lambda_u = st.select_slider(
+        "Densidade linear λ (μC/m)",
+        options=LAMBDA_OPTIONS_UCM,
+        value=5.0,
+        format_func=lambda x: f"{x:.0f} μC/m",
     )
+    lambda_lin = lambda_u * 1e-6  # converte para C/m
 
     a = st.slider(
         "Distância do fio a (m)",
@@ -693,7 +704,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-fig = build_plot(lambda_lin, a, x1, x2, calc)
+fig = build_plot(lambda_lin, lambda_u, a, x1, x2, calc)
 plotly_scrollable(fig)
 
 
@@ -734,18 +745,23 @@ st.latex(r"\varepsilon_0 = 8.8541878128\times 10^{-12}\ \text{F/m}")
 
 
 # ============================================================
+# DIVISÃO VISUAL
+# ============================================================
+st.markdown("---")
+
+# ============================================================
 # CÁLCULOS
 # ============================================================
 st.header("Cálculos")
 
-# ---------------------------
-# 1) Ângulos
-# ---------------------------
+# ------------------------------------------------
+# 1) ÂNGULOS
+# ------------------------------------------------
 st.subheader("1) Ângulos")
 
 if x1 is None:
     st.latex(
-        r"\theta_1 = \arctan\left(\frac{x_1}{a}\right),\quad x_1\to\infty \Rightarrow \theta_1 \to 90^\circ"
+        r"\theta_1 = \arctan\left(\frac{x_1}{a}\right) = 90^\circ"
     )
 else:
     st.latex(
@@ -755,7 +771,7 @@ else:
 
 if x2 is None:
     st.latex(
-        r"\theta_2 = \arctan\left(\frac{x_2}{a}\right),\quad x_2\to\infty \Rightarrow \theta_2 \to 90^\circ"
+        r"\theta_2 = \arctan\left(\frac{x_2}{a}\right) = 90^\circ"
     )
 else:
     st.latex(
@@ -763,22 +779,20 @@ else:
         rf" = {fmt_num_plain(calc['theta2_deg'],4)}^\circ"
     )
 
-
-# ---------------------------
-# 2) Componentes em função das distâncias
-# ---------------------------
+# ------------------------------------------------
+# 2) COMPONENTES EM FUNÇÃO DAS DISTÂNCIAS
+# ------------------------------------------------
 st.subheader("2) Componentes em função das distâncias")
 
-# Ex
-if x1 is None or x2 is None:
-    linhas_ex = [
-        r"E_x = \frac{\lambda}{4\pi\varepsilon_0}\left(\frac{1}{\sqrt{x_2^2+a^2}} - \frac{1}{\sqrt{x_1^2+a^2}}\right)"
-    ]
-    if x2 is None:
-        linhas_ex.append(r"\frac{1}{\sqrt{x_2^2+a^2}} \xrightarrow[x_2\to\infty]{} 0")
-    if x1 is None:
-        linhas_ex.append(r"\frac{1}{\sqrt{x_1^2+a^2}} \xrightarrow[x_1\to\infty]{} 0")
-    st.latex(r"\\ ".join(linhas_ex))
+# Limites auxiliares em cor diferente e entre parênteses
+if x2 is None:
+    st.latex(
+        r"\color{#6f42c1}{\left(\frac{1}{\sqrt{x_2^2+a^2}} \xrightarrow[x_2\to\infty]{} 0\right)}"
+    )
+if x1 is None:
+    st.latex(
+        r"\color{#6f42c1}{\left(\frac{1}{\sqrt{x_1^2+a^2}} \xrightarrow[x_1\to\infty]{} 0\right)}"
+    )
 
 termo_x2_ex = (
     "0"
@@ -793,25 +807,19 @@ termo_x1_ex = (
 )
 
 st.latex(
-    rf"E_x = \frac{{{fmt_num_plain(lambda_lin,6)}}}{{4\pi\,{fmt_num_plain(EPS0,6)}}}"
+    rf"E_x = \frac{{{fmt_num_plain(lambda_lin,6)}}}{{4\pi\,({fmt_num_plain(EPS0,6)})}}"
     rf"\left({termo_x2_ex} - {termo_x1_ex}\right)"
     rf" = {fmt_num_plain(calc['Ex_dist'],6)}\ \text{{N/C}}"
 )
 
-# Ey
-if x1 is None or x2 is None:
-    linhas_ey = [
-        r"E_y = \frac{\lambda}{4\pi\varepsilon_0 a}\left(\frac{x_2}{\sqrt{x_2^2+a^2}} + \frac{x_1}{\sqrt{x_1^2+a^2}}\right)"
-    ]
-    if x2 is None:
-        linhas_ey.append(
-            r"\frac{x_2}{\sqrt{x_2^2+a^2}} = \frac{1}{\sqrt{1 + a^2/x_2^2}} \xrightarrow[x_2\to\infty]{} 1"
-        )
-    if x1 is None:
-        linhas_ey.append(
-            r"\frac{x_1}{\sqrt{x_1^2+a^2}} = \frac{1}{\sqrt{1 + a^2/x_1^2}} \xrightarrow[x_1\to\infty]{} 1"
-        )
-    st.latex(r"\\ ".join(linhas_ey))
+if x2 is None:
+    st.latex(
+        r"\color{#0ea5a6}{\left(\frac{x_2}{\sqrt{x_2^2+a^2}} = \frac{1}{\sqrt{1+a^2/x_2^2}} \xrightarrow[x_2\to\infty]{} 1\right)}"
+    )
+if x1 is None:
+    st.latex(
+        r"\color{#0ea5a6}{\left(\frac{x_1}{\sqrt{x_1^2+a^2}} = \frac{1}{\sqrt{1+a^2/x_1^2}} \xrightarrow[x_1\to\infty]{} 1\right)}"
+    )
 
 termo_x2_ey = (
     "1"
@@ -826,33 +834,31 @@ termo_x1_ey = (
 )
 
 st.latex(
-    rf"E_y = \frac{{{fmt_num_plain(lambda_lin,6)}}}{{4\pi\,{fmt_num_plain(EPS0,6)}\,{fmt_num_plain(a,4)}}}"
+    rf"E_y = \frac{{{fmt_num_plain(lambda_lin,6)}}}{{4\pi\,({fmt_num_plain(EPS0,6)})\,{fmt_num_plain(a,4)}}}"
     rf"\left({termo_x2_ey} + {termo_x1_ey}\right)"
     rf" = {fmt_num_plain(calc['Ey_dist'],6)}\ \text{{N/C}}"
 )
 
-
-# ---------------------------
-# 3) Componentes em função dos ângulos
-# ---------------------------
+# ------------------------------------------------
+# 3) COMPONENTES EM FUNÇÃO DOS ÂNGULOS
+# ------------------------------------------------
 st.subheader("3) Componentes em função dos ângulos")
 
 st.latex(
-    rf"E_x = \frac{{{fmt_num_plain(lambda_lin,6)}}}{{4\pi\,{fmt_num_plain(EPS0,6)}\,{fmt_num_plain(a,4)}}}"
+    rf"E_x = \frac{{{fmt_num_plain(lambda_lin,6)}}}{{4\pi\,({fmt_num_plain(EPS0,6)})\,{fmt_num_plain(a,4)}}}"
     rf"\left(\cos {fmt_num_plain(calc['theta2_deg'],4)}^\circ - \cos {fmt_num_plain(calc['theta1_deg'],4)}^\circ\right)"
     rf" = {fmt_num_plain(calc['Ex_ang'],6)}\ \text{{N/C}}"
 )
 
 st.latex(
-    rf"E_y = \frac{{{fmt_num_plain(lambda_lin,6)}}}{{4\pi\,{fmt_num_plain(EPS0,6)}\,{fmt_num_plain(a,4)}}}"
+    rf"E_y = \frac{{{fmt_num_plain(lambda_lin,6)}}}{{4\pi\,({fmt_num_plain(EPS0,6)})\,{fmt_num_plain(a,4)}}}"
     rf"\left(\sin {fmt_num_plain(calc['theta1_deg'],4)}^\circ + \sin {fmt_num_plain(calc['theta2_deg'],4)}^\circ\right)"
     rf" = {fmt_num_plain(calc['Ey_ang'],6)}\ \text{{N/C}}"
 )
 
-
-# ---------------------------
-# 4) Módulo e direção do campo
-# ---------------------------
+# ------------------------------------------------
+# 4) MÓDULO E ÂNGULO DO CAMPO
+# ------------------------------------------------
 st.subheader("4) Módulo e direção do campo elétrico")
 
 st.latex(
@@ -861,24 +867,5 @@ st.latex(
 )
 
 st.latex(
-    rf"\varphi = \operatorname{{atan2}}(E_y, E_x)"
-    rf" = \operatorname{{atan2}}\left({fmt_num_plain(calc['Ey_dist'],6)}, {fmt_num_plain(calc['Ex_dist'],6)}\right)"
-    rf" = {fmt_num_plain(calc['phi_deg'],4)}^\circ"
+    rf"\varphi = {fmt_num_plain(calc['phi_deg'],4)}^\circ"
 )
-
-st.caption("Ângulo \\(\\varphi\\) medido a partir do eixo +x, no sentido anti-horário.")
-
-
-# ============================================================
-# OBSERVAÇÕES
-# ============================================================
-with st.expander("Observações de uso"):
-    st.markdown(
-        """
-- Para **x₁ infinito**, o aplicativo interpreta o fio estendendo-se indefinidamente para a esquerda.
-- Para **x₂ infinito**, o aplicativo interpreta o fio estendendo-se indefinidamente para a direita.
-- Quando **λ < 0**, o sentido do campo elétrico é invertido, e o fio fica azul.
-- Quando **λ = 0**, o campo é nulo, e o fio fica preto.
-- A figura é desenhada com largura grande e contêiner com rolagem horizontal para facilitar uso no celular.
-        """
-    )
