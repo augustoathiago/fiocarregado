@@ -858,7 +858,7 @@ st.latex(
 # ------------------------------------------------
 # 4) MÓDULO E ÂNGULO DO CAMPO
 # ------------------------------------------------
-st.subheader("4) Módulo e direção do campo elétrico")
+st.subheader("Módulo e direção do campo elétrico")
 
 st.latex(
     rf"E = \sqrt{{\left({fmt_num_plain(calc['Ex_dist'],6)}\right)^2 + \left({fmt_num_plain(calc['Ey_dist'],6)}\right)^2}}"
