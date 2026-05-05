@@ -20,9 +20,6 @@ st.set_page_config(
 EPS0 = 8.8541878128e-12  # F/m
 K = 1 / (4 * math.pi * EPS0)
 
-# Três valores permitidos para lambda (em microC/m)
-LAMBDA_OPTIONS_UCM = [-5.0, 0.0, 5.0]
-
 # ============================================================
 # ESTILOS
 # ============================================================
@@ -672,11 +669,13 @@ st.header("Parâmetros")
 p1, p2 = st.columns(2)
 
 with p1:
-    lambda_u = st.select_slider(
+    lambda_u = st.slider(
         "Densidade linear λ (μC/m)",
-        options=LAMBDA_OPTIONS_UCM,
+        min_value=-20.0,
+        max_value=20.0,
         value=5.0,
-        format_func=lambda x: f"{x:.0f} μC/m",
+        step=0.1,
+        format="%.1f μC/m",
     )
     lambda_lin = lambda_u * 1e-6  # converte para C/m
 
