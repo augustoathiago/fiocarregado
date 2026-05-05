@@ -512,6 +512,10 @@ def build_plot(lambda_lin: float, lambda_u: float, a: float, x1: float | None, x
             bgcolor="rgba(255,255,255,0.68)" if show_text else "rgba(255,255,255,0)",
         )
 
+    # Ex e Ey com rótulo
+    add_vec(Ex, 0, "Eₓ", "#ff7f0e", show_text=False)
+    add_vec(0, Ey, "Eᵧ", "#17a2b8", show_text=False)
+    
     # E sem rótulo
     add_vec(Ex, Ey, "", "#111111", show_text=False)
 
