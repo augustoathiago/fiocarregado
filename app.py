@@ -756,7 +756,7 @@ st.header("Cálculos")
 # ------------------------------------------------
 # 1) ÂNGULOS
 # ------------------------------------------------
-st.subheader("1) Ângulos")
+st.subheader("Ângulos")
 
 if x1 is None:
     st.latex(
@@ -781,7 +781,7 @@ else:
 # ------------------------------------------------
 # 2) COMPONENTES EM FUNÇÃO DAS DISTÂNCIAS
 # ------------------------------------------------
-st.subheader("2) Componentes em função das distâncias")
+st.subheader("Componentes em função das distâncias")
 
 # Limites auxiliares em cor diferente e entre parênteses
 if x2 is None:
@@ -841,7 +841,7 @@ st.latex(
 # ------------------------------------------------
 # 3) COMPONENTES EM FUNÇÃO DOS ÂNGULOS
 # ------------------------------------------------
-st.subheader("3) Componentes em função dos ângulos")
+st.subheader("Componentes em função dos ângulos")
 
 st.latex(
     rf"E_x = \frac{{{fmt_num_plain(lambda_lin,6)}}}{{4\pi\,({fmt_num_plain(EPS0,6)})\,{fmt_num_plain(a,4)}}}"
